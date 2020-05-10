@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Covid-19 3D</title>
+    <style>
+        html,
+        body,
+        div,
+        canvas {
+            margin: 0;
+            padding: 0;
+        }
+
+        #header {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+            display: block;
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: bold;
+            font-size: 35px;
+            color: black;
+        }
+
+        #gun {
+            position: absolute;
+            bottom: 20%;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+            display: block;
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: bold;
+            font-size: 40px;
+        }
+
+        #tarih {
+            position: absolute;
+            top: 47%;
+            right: 3%;
+            width: fit-content;
+            text-align: center;
+            z-index: 100;
+            display: block;
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: bold;
+            font-size: 25px;
+        }
+
+        #tarih2 {
+            position: absolute;
+            top: 105%;
+            right: 3%;
+            width: fit-content;
+            text-align: center;
+            z-index: 100;
+            display: none;
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: bold;
+            font-size: 25px;
+        }
+
+        #aktifVaka {
+            position: absolute;
+            top: 30%;
+            left: 3%;
+            width: 31%;
+            text-align: center;
+            z-index: 100;
+            display: block;
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: bold;
+            font-size: 25px;
+            color: #b53d00;
+        }
+
+        #iyilesen {
+            position: absolute;
+            top: 30%;
+            left: 33%;
+            width: 31%;
+            text-align: center;
+            z-index: 100;
+            display: block;
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: bold;
+            font-size: 25px;
+            color: #005005;
+        }
+
+        #olu {
+            position: absolute;
+            top: 30%;
+            left: 66%;
+            width: 31%;
+            text-align: center;
+            z-index: 100;
+            display: block;
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: bold;
+            font-size: 25px;
+            color: #7f0000;
+        }
+
+        #uyarı {
+            position: absolute;
+            top: 82%;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+            display: block;
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: bold;
+            font-size: 17px;
+            color: #d42323;
+        }
+
+        @media only screen and (max-width: 600px) {
+            body {
+                transform: rotate(90deg);
+                transform-origin: bottom left;
+
+                position: absolute;
+                top: -100vw;
+                left: 0;
+
+                height: 100vw;
+                width: 100vh;
+
+                background-color: #000;
+                color: #fff;
+
+                overflow: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <script src="js/three.js"></script>
+    <div id="header">COVİD-19 TÜRKİYE</div>
+    <div id="gun">0. GÜN</div>
+    <div id="tarih"></div>
+    <div id="aktifVaka">KALAN AKTİF VAKA<br>0</div>
+    <div id="iyilesen">İYİLEŞEN HASTA<br>0</div>
+    <div id="olu">VEFAT<br>0</div>
+    <div id="uyarı">Günler arasında geçiş yapmak için aşağı veya yukarı kaydırın</div>
+    <script>
+        var day = 1;
+        var data_index = -1;
+        var jsonData = null;
+        var scrollCoe = 0;
+        var day = 0;
+
+        var scene = new THREE.Scene();
+        var color = new THREE.Color(0xefefef);
+        scene.background = color;
+        var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+        var mouse = new THREE.Vector2(), INTERSECTED;
+        var raycaster;
+        raycaster = new THREE.Raycaster();
+
+        var renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight - 5);
+        document.body.appendChild(renderer.domElement);
+
+        // Enable Shadows in the Renderer
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.BasicShadowMap;
+
+        //set default widths for all elements
+        var active_bar_width = 8;
+        var recovered_bar_width = 8;
+        var death_bar_width = 8;
+
+        //set x axis position for all elements according to widths
+        var active_bar_x = 13 - active_bar_width / 2;
+        var recovered_bar_x = active_bar_x - active_bar_width / 2 - recovered_bar_width / 2 - 0.04;
+        var death_bar_x = recovered_bar_x - recovered_bar_width / 2 - death_bar_width / 2 - 0.02;
+
+        //active case bar object
+        var active_case_bar = new THREE.Mesh(
+            new THREE.BoxGeometry(active_bar_width, 1, 1),
+            new THREE.MeshPhongMaterial({ color: 0xff6f00, wireframe: false })
+        );
+        active_case_bar.receiveShadow = true;
+        active_case_bar.castShadow = true;
+        scene.add(active_case_bar);
+
+        active_case_bar.position.z = 5;
+        active_case_bar.position.x = active_bar_x;
+
+        //recovered case bar object
+        var recovered_bar = new THREE.Mesh(
+            new THREE.BoxGeometry(recovered_bar_width, 1, 1),
+            new THREE.MeshPhongMaterial({ color: 0x388e3c, wireframe: false })
+        );
+        recovered_bar.receiveShadow = true;
+        recovered_bar.castShadow = true;
+        scene.add(recovered_bar);
+
+        recovered_bar.position.z = 5;
+        recovered_bar.position.x = recovered_bar_x;
+
+        //death bar object
+        var death_bar = new THREE.Mesh(
+            new THREE.BoxGeometry(death_bar_width, 1, 1),
+            new THREE.MeshPhongMaterial({ color: 0x7f0000, wireframe: false })
+        );
+        death_bar.receiveShadow = true;
+        death_bar.castShadow = true;
+        scene.add(death_bar);
+
+        death_bar.position.z = 5;
+        death_bar.position.x = death_bar_x;
+
+
+        //lights
+        ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+
+        light = new THREE.PointLight(0xffffff, 1, 18);
+        light.position.set(-3, 6, -3);
+        light.castShadow = true;
+
+        //will not light anything closer than 0.1 units or further than 25 units
+        light.shadow.camera.near = 0.1;
+        light.shadow.camera.far = 25;
+        scene.add(light);
+
+
+        camera.position.set(0, 0, -5);
+        camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+        document.addEventListener('mousemove', onDocumentMouseMove, false);
+        document.addEventListener('mousewheel', scroll, false);
+        document.addEventListener("DOMMouseScroll", scroll, false);
+        window.addEventListener('resize', onWindowResize, false);
+
+        animate();
+        fetchData();
+
+        function changeXForWidths(active_bar_width, recovered_bar_width, death_bar_width) {
+            active_bar_x = 13 - active_bar_width / 2;
+            recovered_bar_x = active_bar_x - active_bar_width / 2 - recovered_bar_width / 2 - 0.04;
+            death_bar_x = recovered_bar_x - recovered_bar_width / 2 - death_bar_width / 2 - 0.02;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            //check active case bar's width updates
+            if (active_case_bar.geometry.parameters.width < active_bar_width) {
+                let sub = active_bar_width - active_case_bar.geometry.parameters.width;
+                let new_geo = new THREE.BoxGeometry(active_case_bar.geometry.parameters.width + 0.1 * sub / 1.2, 1, 1);
+                active_case_bar.geometry = new_geo;
+
+            }
+            else if (active_case_bar.geometry.parameters.width - 0.05 > active_bar_width) {
+                let sub = active_case_bar.geometry.parameters.width - active_bar_width;
+                let new_geo = new THREE.BoxGeometry(active_case_bar.geometry.parameters.width - 0.1 * sub / 1.2, 1, 1);
+                active_case_bar.geometry = new_geo;
+            }
+
+            //check recovered case bar's width updates
+            if (recovered_bar.geometry.parameters.width < recovered_bar_width) {
+                let sub = recovered_bar_width - recovered_bar.geometry.parameters.width;
+                let new_geo = new THREE.BoxGeometry(recovered_bar.geometry.parameters.width + 0.1 * sub / 1.2, 1, 1);
+                recovered_bar.geometry = new_geo;
+            }
+            else if (recovered_bar.geometry.parameters.width - 0.05 > recovered_bar_width) {
+                let sub = recovered_bar.geometry.parameters.width - recovered_bar_width;
+                let new_geo = new THREE.BoxGeometry(recovered_bar.geometry.parameters.width - 0.1 * sub / 1.2, 1, 1);
+                recovered_bar.geometry = new_geo;
+            }
+
+            //check death bar's width updates
+            if (death_bar.geometry.parameters.width < death_bar_width) {
+                let sub = death_bar_width - death_bar.geometry.parameters.width;
+                let new_geo = new THREE.BoxGeometry(death_bar.geometry.parameters.width + 0.1 * sub / 1.2, 1, 1);
+                death_bar.geometry = new_geo;
+            }
+            else if (death_bar.geometry.parameters.width - 0.05 > death_bar_width) {
+                let sub = death_bar.geometry.parameters.width - death_bar_width;
+                let new_geo = new THREE.BoxGeometry(death_bar.geometry.parameters.width - 0.1 * sub / 1.2, 1, 1);
+                death_bar.geometry = new_geo;
+            }
+
+            //set new positions
+            changeXForWidths(active_case_bar.geometry.parameters.width, recovered_bar.geometry.parameters.width, death_bar.geometry.parameters.width);
+            active_case_bar.position.x = active_bar_x;
+            recovered_bar.position.x = recovered_bar_x;
+            death_bar.position.x = death_bar_x;
+
+            //rotate x axis all cubes
+            death_bar.rotation.x += 0.008;
+            active_case_bar.rotation.x += 0.008;
+            recovered_bar.rotation.x += 0.008;
+
+            //mouse tracer
+            raycaster.setFromCamera(mouse, camera);
+
+            var intersects = raycaster.intersectObjects(scene.children);
+
+            if (intersects.length > 0) {
+                if (INTERSECTED != intersects[0].object) {
+                    if (INTERSECTED) INTERSECTED.material.emissive.setHex(INTERSECTED.currentHex);
+                    INTERSECTED = intersects[0].object;
+                    INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
+                    INTERSECTED.material.emissive.setHex(INTERSECTED.material.color.getHex());
+                    INTERSECTED.material.emissiveIntensity = 0.2;
+                    if (INTERSECTED.material.color.getHex() == 16740096) {
+                        document.getElementById("aktifVaka").style.color = "#f9683a";
+                        document.getElementById("iyilesen").style.color = '#005005';
+                        document.getElementById("olu").style.color = '#7f0000';
+                    }
+                    else if (INTERSECTED.material.color.getHex() == 3706428) {
+                        document.getElementById("iyilesen").style.color = "#60ad5e";
+                        document.getElementById("aktifVaka").style.color = '#b53d00';
+                        document.getElementById("olu").style.color = '#7f0000';
+                    }
+                    else if (INTERSECTED.material.color.getHex() == 8323072) {
+                        document.getElementById("olu").style.color = "#f05545";
+                        document.getElementById("aktifVaka").style.color = '#b53d00';
+                        document.getElementById("iyilesen").style.color = '#005005';
+                    }
+                }
+
+            } else {
+                if (INTERSECTED) INTERSECTED.material.emissive.setHex(INTERSECTED.currentHex);
+                document.getElementById("aktifVaka").style.color = '#b53d00';
+                document.getElementById("iyilesen").style.color = '#005005';
+                document.getElementById("olu").style.color = '#7f0000';
+                INTERSECTED = null;
+
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function fetchData() {
+            fetch('https://api.apify.com/v2/datasets/LYeOfHQwsv7FsfdGV/items?format=json&clean=1')
+                .then(response => response.json())
+                .then(data => {
+                    let temp = data;
+                    for (i = 8; i < 24; i++) {
+                        console.log(delete data[i + ""])
+                    }
+                    data = JSON.parse(JSON.stringify(data));
+                    console.log(data)
+                    jsonData = temp;
+                    console.log(data);
+                    fillWithData();
+                });
+            ;
+        }
+        function fillWithData() {
+            if (data_index < 0) {
+                data_index = jsonData.length - 1
+                day = data_index;
+            }
+            let currentSelected = jsonData[data_index];
+            let total = currentSelected.infected;
+
+            let activeRate, recoveredRate, deathRate;
+            activeRate = (currentSelected.infected - (currentSelected.deceased + currentSelected.recovered)) / total;
+            recoveredRate = currentSelected.recovered / total;
+            deathRate = currentSelected.deceased / total;
+
+            let barRates = [activeRate * 24, recoveredRate * 24, deathRate * 24];
+            active_bar_width = barRates[0];
+            recovered_bar_width = barRates[1];
+            death_bar_width = barRates[2];
+
+            numberIncrementer("aktifVaka", "KALAN AKTİF VAKA<br>", (currentSelected.infected - (currentSelected.deceased + currentSelected.recovered)) - 80, (currentSelected.infected - (currentSelected.deceased + currentSelected.recovered)), 1);
+            numberIncrementer("iyilesen", "İYİLEŞEN HASTA<br>", currentSelected.recovered - 80, currentSelected.recovered, 1);
+            numberIncrementer("olu", "VEFAT<br>", currentSelected.deceased - 80, currentSelected.deceased, 1);
+
+            let tarihElement = document.getElementById("tarih")
+            let date = dateConverter(jsonData[data_index].lastUpdatedAtApify).split("-");
+            tarihElement.innerHTML = date[0] + " " + date[1] + "<br>" + date[2];
+
+
+            document.getElementById("gun").innerHTML = day + ". GÜN";
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight - 5);
+        }
+
+        function onDocumentMouseMove(event) {
+            event.preventDefault();
+
+            mouse.x = (event.clientX / (window.innerWidth)) * 2 - 1;
+            mouse.y = - (event.clientY / (window.innerHeight - 5)) * 2 + 1;
+        }
+
+        function scroll(event) {
+            var coe = -1;
+            if (event.deltaY < 0) {
+                coe *= -1;
+            }
+            scrollCoe++;
+
+            if (data_index == 24) {
+                data_index = 8;
+            }
+            if (data_index == 9) {
+                data_index = 25;
+            }
+            if (scrollCoe % 5 == 0) {
+                data_index += coe;
+                day += coe;
+                if (data_index < 4 || data_index > jsonData.length - 1) {
+                    data_index -= coe;
+                    day -= coe;
+
+                }
+                else {
+                    fillWithData();
+                }
+            }
+
+        }
+
+        function dateConverter(dateFromJson) {
+            let temp = dateFromJson.split("-");
+            let day = temp[2].split("T")[0];
+            let month = temp[1];
+            switch (Number(temp[1])) {
+                case 1:
+                    month = "Ocak";
+                    break;
+                case 2:
+                    month = "Şubat";
+                    break;
+                case 3:
+                    month = "Mart";
+                    break;
+                case 4:
+                    month = "Nisan";
+                    break;
+                case 5:
+                    month = "Mayıs"
+                    break;
+                case 6:
+                    month = "Haziran";
+                    break;
+                case 7:
+                    month = "Temmuz";
+                    break;
+                case 8:
+                    month = "Ağustos";
+                    break;
+                case 9:
+                    month = "Eylül";
+                    break;
+                case 10:
+                    month = "Ekim"
+                    break;
+                case 11:
+                    month = "Kasım";
+                    break;
+                case 12:
+                    month = "Aralım"
+                    break;
+                default:
+                    break;
+            }
+            let year = temp[0];
+            let date = day + "-" + month + "-" + year;
+            return date;
+
+        }
+
+        function numberIncrementer(id, val, start, end, incrementer) {
+            var range = end - start;
+            var current = start;
+            var increment = end > start ? incrementer : incrementer * -1;
+            var obj = document.getElementById(id);
+            var timer = setInterval(function () {
+                current += increment;
+                obj.innerHTML = val + current;
+                if (current >= end || current == NaN) {
+                    clearInterval(timer);
+                }
+            }, 1);
+        }
+    </script>
+
+
+</body>
+
+</html>
