@@ -12,6 +12,7 @@
         canvas {
             margin: 0;
             padding: 0;
+            overscroll-behavior-y: contain;
         }
 
         #content{
@@ -172,6 +173,7 @@
         var jsonData = null;
         var scrollCoe = 0;
         var day = 0;
+        var touchCoe = 0;
 
         var scene = new THREE.Scene();
         var color = new THREE.Color(0xefefef);
@@ -257,6 +259,7 @@
         document.addEventListener('mousemove', onDocumentMouseMove, false);
         document.addEventListener('mousewheel', scroll, false);
         document.addEventListener("DOMMouseScroll", scroll, false);
+        document.addEventListener('touchmove',touchScroll,false);
         window.addEventListener('resize', onWindowResize, false);
 
         animate();
@@ -364,14 +367,7 @@
             fetch('https://api.apify.com/v2/datasets/LYeOfHQwsv7FsfdGV/items?format=json&clean=1')
                 .then(response => response.json())
                 .then(data => {
-                    let temp = data;
-                    for (i = 8; i < 24; i++) {
-                        console.log(delete data[i + ""])
-                    }
-                    data = JSON.parse(JSON.stringify(data));
-                    console.log(data)
-                    jsonData = temp;
-                    console.log(data);
+                    jsonData = data;
                     fillWithData();
                 });
             ;
@@ -495,6 +491,38 @@
             let date = day + "-" + month + "-" + year;
             return date;
 
+        }
+
+        function touchScroll(event){
+            let direction = event.changedTouches[0].screenY - touchCoe;
+            let directionCoe = 1;
+            if(direction>0){
+                directionCoe*=-1;
+            }
+            touchCoe = event.changedTouches[0].screenY;
+
+            scrollCoe++;
+
+            if (data_index == 24) {
+                data_index = 8;
+            }
+            if (data_index == 9) {
+                data_index = 25;
+            }
+            if (scrollCoe % 5 == 0) {
+                data_index += directionCoe;
+                day += directionCoe;
+                if (data_index < 4 || data_index > jsonData.length - 1) {
+                    data_index -= directionCoe;
+                    day -= directionCoe;
+
+                }
+                else {
+                    fillWithData();
+                }
+            }
+
+            
         }
 
         function numberIncrementer(id, val, start, end, incrementer) {
